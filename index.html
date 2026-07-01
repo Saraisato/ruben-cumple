@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Feliz Cumpleaños, Rubén</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -127,6 +127,7 @@
   .interaction-zone{ display:flex; flex-direction:column; align-items:center; min-height:64px; }
   .interaction-hint{ font-size:0.78rem; color:var(--cream-dim); margin-top:0.5rem; letter-spacing:0.02em; }
   .next-btn{
+    touch-action:manipulation;
     background:transparent; border:1px solid var(--gold);
     color:var(--gold-soft); font-family:'DM Sans', sans-serif; font-size:0.85rem;
     padding:0.6rem 1.4rem; border-radius:20px; cursor:pointer; letter-spacing:0.03em;
@@ -138,13 +139,14 @@
   #drawCanvas{ border:1px dashed rgba(232,206,132,0.5); border-radius:4px; touch-action:none; cursor:crosshair; background:rgba(255,255,255,0.02); }
 
   .tap-btn{
+    touch-action:manipulation;
     background:transparent; border:1px solid var(--gold); color:var(--gold-soft);
     font-family:'DM Sans', sans-serif; font-size:0.9rem; padding:0.9rem 1.6rem;
     border-radius:24px; cursor:pointer; transition:transform 0.12s ease;
   }
   .tap-btn.pulse{ transform:scale(1.12); }
 
-  .hold-wrap{ position:relative; width:76px; height:76px; display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; }
+  .hold-wrap{ position:relative; width:76px; height:76px; display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; touch-action:manipulation; }
   .hold-wrap svg{ position:absolute; inset:0; transform:rotate(-90deg); }
   .hold-wrap circle{ fill:none; stroke-width:3; }
   .hold-bg{ stroke:rgba(232,206,132,0.2); }
@@ -170,7 +172,7 @@
     width:100%; height:100%; object-fit:cover; display:block; transform:scale(1);
     background:linear-gradient(135deg, #2A3F6B, var(--navy-deep));
   }
-  .photo-frame.on .frame-inner img, .photo-frame.on .placeholder-box{ /* animation set via JS, see PHOTO_DURATION */ }
+  .photo-frame.on .frame-inner img, .photo-frame.on .placeholder-box{}
   @keyframes kenburns{ from{ transform:scale(1); } to{ transform:scale(1.12); } }
   .placeholder-box{ display:flex; align-items:center; justify-content:center; color:var(--gold-soft); font-family:'Fraunces', serif; font-style:italic; }
   .photo-cap{ margin-top:1.1rem; font-family:'Fraunces', serif; font-style:italic; color:var(--gold-soft); font-size:1.05rem; max-width:280px; }
@@ -216,13 +218,7 @@
     30%{ transform:scaleY(1.06) rotate(-2deg); }
     60%{ transform:scaleY(0.95) rotate(2deg); }
   }
-  .hit-zone{ cursor:pointer; }
-  .mic-btn{
-    margin-top:1.2rem; background:transparent; border:1px solid var(--gold);
-    color:var(--gold-soft); font-family:'DM Sans', sans-serif; font-size:0.82rem;
-    padding:0.5rem 1.05rem; border-radius:20px; cursor:pointer; letter-spacing:0.02em;
-  }
-  .mic-btn:active{ transform:scale(0.97); }
+  .hit-zone{ cursor:pointer; touch-action:manipulation; }
   .wish{
     max-width:320px; margin-top:1.5rem; font-family:'Fraunces', serif; font-style:italic;
     font-size:1.2rem; line-height:1.55; color:var(--gold-soft);
@@ -297,7 +293,6 @@
         <path class="flame" d="M192 75 C188 68 188 62 192 56 C196 62 196 68 192 75 Z" fill="#E8CE84"/>
       </g>
     </svg>
-    <button class="mic-btn" id="micBtn">soplar de verdad (usar micrófono)</button>
     <p class="wish" id="wishText">Ese deseo que acabas de pedir, ojalá se cumpla.<br>Pase lo que pase, aquí siempre vas a tener mi cariño.<br>Feliz cumpleaños, hermano.</p>
     <button class="next-btn" id="collageBtn">ver más recuerdos →</button>
   </div>
@@ -621,11 +616,6 @@
       burstConfetti(40);
     }
   }
-  function blowNextLit(){
-    const candles = Array.from(document.querySelectorAll('.hit-zone'));
-    const next = candles.find(c => !c.querySelector('.flame').classList.contains('out'));
-    if(next) blowOut(next);
-  }
 
   function burstConfetti(originTop){
     const top = originTop === undefined ? 50 : originTop;
@@ -671,44 +661,6 @@
 
   setTimeout(()=>burstConfetti(45), 600);
 
-  const micBtn = document.getElementById('micBtn');
-  let listening = false;
-  micBtn.addEventListener('click', async ()=>{
-    if(listening) return;
-    try{
-      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      listening = true;
-      micBtn.textContent = 'escuchando... sopla ahora';
-      let cooldown = false;
-      function check(){
-        if(!listening) return;
-        analyser.getByteFrequencyData(data);
-        const avg = data.reduce((a,b)=>a+b,0) / data.length;
-        if(avg > 50 && !cooldown){
-          blowNextLit();
-          cooldown = true;
-          setTimeout(()=>{ cooldown = false; }, 800);
-        }
-        if(litCount > 0) requestAnimationFrame(check);
-        else{
-          listening = false;
-          stream.getTracks().forEach(t=>t.stop());
-          micBtn.style.display = 'none';
-        }
-      }
-      check();
-    }catch(e){
-      micBtn.textContent = 'no se pudo activar — toca las velitas';
-    }
-  });
-
   document.getElementById('collageBtn').addEventListener('click', ()=>{
     showScene('s5');
     setTimeout(()=>burstConfetti(35), 300);
@@ -722,8 +674,6 @@
     document.getElementById('cakeHint').textContent = 'toca cada velita para apagarla';
     document.getElementById('wishText').classList.remove('show');
     document.getElementById('collageBtn').classList.remove('show');
-    micBtn.style.display = '';
-    micBtn.textContent = 'soplar de verdad (usar micrófono)';
     showScene('s1');
     setTimeout(()=>showScene('s2'), 5000);
     setTimeout(()=>burstConfetti(45), 300);
